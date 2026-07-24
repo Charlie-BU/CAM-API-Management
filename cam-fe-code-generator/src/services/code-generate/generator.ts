@@ -42,6 +42,9 @@ const tsTypeMap = (type: string, arrayChildType?: string | null): string => {
     }
 };
 
+const formatInterfaceFieldName = (name: string): string =>
+    name.includes("-") ? JSON.stringify(name) : name;
+
 const generateInterface = (
     name: string,
     params: any[],
@@ -54,6 +57,7 @@ const generateInterface = (
     params.forEach((param) => {
         let type = tsTypeMap(param.type, param.array_child_type);
         const fieldName = param.name;
+        const formattedFieldName = formatInterfaceFieldName(fieldName);
         const isOptional = !param.required;
         const comment = param.description
             ? `  /** ${param.description} */\n`
@@ -96,7 +100,7 @@ const generateInterface = (
         }
 
         fields.push(
-            `${comment}  ${fieldName}${isOptional ? "?" : ""}: ${type};`
+            `${comment}  ${formattedFieldName}${isOptional ? "?" : ""}: ${type};`
         );
     });
 
