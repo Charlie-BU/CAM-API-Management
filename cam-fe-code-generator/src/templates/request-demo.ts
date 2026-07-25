@@ -14,7 +14,7 @@ const BASE_URL = "http://localhost:3000"; // Change to the actual base URL
 export const demoServiceForAxios = new ${demoClassName}<AxiosRequestConfig>({
     baseURL: BASE_URL,
     request: (config, _options) =>
-        axios.request({ ...config }),
+        axios.request({ ...config }).then((res) => res.data),
 });
 
 export const demoServiceForFetch = new ${demoClassName}<RequestInit>({
