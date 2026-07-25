@@ -24,6 +24,7 @@ import {
     GetMyNewestServices,
     GetServiceByUuidAndVersion,
     IsServiceMaintainer,
+    PermanentlyDeleteServiceById,
     RestoreServiceById,
     StartIteration,
 } from "@/services/service";
@@ -237,6 +238,24 @@ export const useService = () => {
         setLoading(false);
     }, []);
 
+    const handlePermanentDeleteService = useCallback(async (id: number) => {
+        setLoading(true);
+        try {
+            const res = await PermanentlyDeleteServiceById({ id });
+            if (res.status !== 200) {
+                setLoading(false);
+                throw new Error(res.message || "删除服务失败");
+            }
+            Message.success("删除服务成功");
+            // 刷新服务列表
+            await refetchRef.current?.();
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            Message.warning(msg || "删除服务失败");
+        }
+        setLoading(false);
+    }, []);
+
     const handleCreateService = useCallback(
         (owner?: UserProfile) => {
             const modal = CModal.openArcoForm({
@@ -292,6 +311,7 @@ export const useService = () => {
         handleViewService,
         handleDeleteService,
         handleRestoreService,
+        handlePermanentDeleteService,
         handleCreateService,
     };
 };

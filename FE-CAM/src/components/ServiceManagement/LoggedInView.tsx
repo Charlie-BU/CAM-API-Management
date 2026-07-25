@@ -39,6 +39,7 @@ const LoggedInView: React.FC<{
         handleViewService,
         handleDeleteService,
         handleRestoreService,
+        handlePermanentDeleteService,
         handleCreateService,
     } = useService();
     const [pagination, setPagination] = useState({
@@ -237,6 +238,7 @@ const LoggedInView: React.FC<{
                 handleViewService={handleViewService}
                 handleDeleteService={handleDeleteService}
                 handleRestoreService={handleRestoreService}
+                handlePermanentDeleteService={handlePermanentDeleteService}
                 loading={loading}
                 user={user}
             />

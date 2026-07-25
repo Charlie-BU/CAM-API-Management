@@ -143,6 +143,14 @@ export const DeleteIterationById = async (data: DeleteIterationByIdRequest) => {
     );
 };
 
+// 通过服务id彻底删除服务（最新版本），历史版本也会删除
+export const PermanentlyDeleteServiceById = async (data: DeleteServiceByIdRequest) => {
+    return api.post<DeleteServiceByIdResponse>(
+        `${prefix}/deleteServicePermanentlyById`,
+        data
+    );
+};
+
 // 通过id获取服务迭代详情
 export const GetIterationById = async (id: number) => {
     return api.get<GetIterationByIdResponse>(`${prefix}/getIterationById`, {

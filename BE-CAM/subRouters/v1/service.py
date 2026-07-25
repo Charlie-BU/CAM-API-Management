@@ -249,6 +249,17 @@ def deleteIterationById(request: Request):
     return res
 
 
+# 彻底删除服务（包括所有历史版本）
+@serviceRouterV1.post("/deleteServicePermanentlyById", auth_required=True)
+def deleteServicePermanentlyById(request: Request):
+    data = request.json()
+    id = data["id"]
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceDeleteServicePermanentlyById(db=db, id=id, user_id=user_id)
+    return res
+
+
 # ---- ⚠️ 以下为service迭代流程相关路由 ----
 @serviceRouterV1.get("/getIterationById", auth_required=True)
 def getIterationById(request: Request):

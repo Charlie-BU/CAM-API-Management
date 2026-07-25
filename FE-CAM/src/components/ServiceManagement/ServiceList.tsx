@@ -29,6 +29,7 @@ const ServiceList: React.FC<{
     handleViewService: (service_uuid: string) => void;
     handleDeleteService: (id: number) => Promise<void>;
     handleRestoreService: (id: number) => Promise<void>;
+    handlePermanentDeleteService: (id: number) => Promise<void>;
 }> = (props) => {
     const {
         serviceList,
@@ -40,6 +41,7 @@ const ServiceList: React.FC<{
         handleViewService,
         handleDeleteService,
         handleRestoreService,
+        handlePermanentDeleteService,
     } = props;
 
     const { t } = useTranslation();
@@ -140,7 +142,7 @@ const ServiceList: React.FC<{
                         {formatDateOrDateTime(deleted_at, "minute") || "-"}
                     </Text>
                 ),
-            }
+            },
         );
     }
     columns.push({
@@ -151,46 +153,62 @@ const ServiceList: React.FC<{
         align: "center" as const,
 
         render: (_: any, item: ServiceItem) => (
-            <Space size={4} className={styles["custom-action-btn"]}>
-                {!item.is_deleted && (
-                    <Button
-                        type="text"
-                        size="small"
-                        onClick={() => handleViewService(item.service_uuid)}
-                    >
-                        查看
-                    </Button>
-                )}
+            <Space size={0} className={styles["custom-action-btn"]}>
                 {!item.is_deleted ? (
-                    <Button
-                        type="text"
-                        status="danger"
-                        size="small"
-                        onClick={() =>
-                            handleConfirm(
-                                () => handleDeleteService(item.id),
-                                "删除",
-                                "确认删除当前服务？"
-                            )
-                        }
-                    >
-                        删除
-                    </Button>
+                    <>
+                        <Button
+                            type="text"
+                            size="small"
+                            onClick={() => handleViewService(item.service_uuid)}
+                        >
+                            查看
+                        </Button>
+                        <Button
+                            type="text"
+                            status="danger"
+                            size="small"
+                            onClick={() =>
+                                handleConfirm(
+                                    () => handleDeleteService(item.id),
+                                    "删除",
+                                    "确认删除当前服务？",
+                                )
+                            }
+                        >
+                            删除
+                        </Button>
+                    </>
                 ) : (
-                    <Button
-                        type="text"
-                        status="success"
-                        size="small"
-                        onClick={() =>
-                            handleConfirm(
-                                () => handleRestoreService(item.id),
-                                "恢复",
-                                "确认恢复当前服务？"
-                            )
-                        }
-                    >
-                        恢复
-                    </Button>
+                    <>
+                        <Button
+                            type="text"
+                            status="success"
+                            size="small"
+                            onClick={() =>
+                                handleConfirm(
+                                    () => handleRestoreService(item.id),
+                                    "恢复",
+                                    "确认恢复当前服务？",
+                                )
+                            }
+                        >
+                            恢复
+                        </Button>
+                        <Button
+                            type="text"
+                            status="danger"
+                            size="small"
+                            onClick={() =>
+                                handleConfirm(
+                                    () => handlePermanentDeleteService(item.id),
+                                    "彻底删除",
+                                    "确认彻底删除当前服务？",
+                                )
+                            }
+                        >
+                            彻底删除
+                        </Button>
+                    </>
                 )}
             </Space>
         ),

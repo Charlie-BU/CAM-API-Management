@@ -8,6 +8,7 @@ from database.models import (
     Service,
     ServiceIteration,
     Api,
+    ApiCategory,
     RequestParam,
     ResponseParam,
     ApiDraft,
@@ -533,6 +534,52 @@ def serviceDeleteIterationById(
     return {
         "status": 200,
         "message": "Delete service iteration success",
+    }
+
+
+# 彻底删除服务（包括所有历史版本）
+def serviceDeleteServicePermanentlyById(db: Session, id: int, user_id: int) -> dict:
+    service = db.get(Service, id)
+    if not service:
+        return {
+            "status": -1,
+            "message": "Service not found",
+        }
+    user = db.get(User, user_id)
+    # 非L0用户只能删除自己的服务
+    if service.owner_id != user_id and user.level.value != 0:  # type: ignore
+        return {
+            "status": -2,
+            "message": "You are not the owner of this service",
+        }
+    if not service.is_deleted:  # type: ignore
+        return {
+            "status": -3,
+            "message": "Service needs to be soft deleted first",
+        }
+    # 彻底删除服务迭代（包括所有历史版本）
+    # 1. 删除所有迭代相关的 ApiDraft (会自动级联删除 RequestParamDraft, ResponseParamDraft)
+    db.query(ApiDraft).filter(
+        ApiDraft.service_iteration_id.in_(
+            db.query(ServiceIteration.id).filter(ServiceIteration.service_id == id)
+        )
+    ).delete(synchronize_session=False)
+    # 2. 删除所有迭代
+    db.query(ServiceIteration).filter(ServiceIteration.service_id == id).delete(
+        synchronize_session=False
+    )
+    # 3. 删除所有 Api (会自动级联删除 RequestParam, ResponseParam)
+    db.query(Api).filter(Api.service_id == id).delete(synchronize_session=False)
+    # 4. 删除所有 ApiCategory
+    db.query(ApiCategory).filter(ApiCategory.service_id == id).delete(
+        synchronize_session=False
+    )
+    # 彻底删除服务（包括所有历史版本）
+    db.delete(service)
+    db.commit()
+    return {
+        "status": 200,
+        "message": "Delete service success",
     }
 
 
