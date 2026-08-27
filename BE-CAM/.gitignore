@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+main.spec
+logs/
+
+# Virtual environments
+.venv
+.env
+.DS_Store
+.langgraph_api
+.vscode
+.VSCodeCounter
+
+# Alembic migrations
+alembic.ini
+**/alembic/versions/
