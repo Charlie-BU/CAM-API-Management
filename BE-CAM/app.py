@@ -3,22 +3,26 @@ from robyn.robyn import Response
 from subRouters.v1.user import userRouterV1
 from subRouters.v1.service import serviceRouterV1
 from subRouters.v1.api import apiRouterV1
+from database.database import initialize_database
 
+import json
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 PORT = int(os.getenv("PORT") or 1024)
-
+CORS_ORIGINS = json.loads(os.getenv("CORS_ORIGINS") or '["http://localhost:9000"]')
 
 app = Robyn(__file__)
+
+app.startup_handler(initialize_database)
 
 app.include_router(userRouterV1)
 app.include_router(serviceRouterV1)
 app.include_router(apiRouterV1)
 
-# 生产环境需要注释：使用nginx解决跨域
-ALLOW_CORS(app, origins=["http://localhost:9000"])
+# 生产环境需要注释：使用nginx解决跨域问题
+ALLOW_CORS(app, origins=CORS_ORIGINS)
 
 
 @app.exception
