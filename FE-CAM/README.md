@@ -1,75 +1,63 @@
-# React + TypeScript + Vite
+# 本地离线使用 @cloud-materials/common
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+本项目不通过 pnpm 安装 `@cloud-materials/common`，因此不需要访问字节内网。
+使用离线仓库提供的安装脚本，将组件库 clone 到本项目根目录：
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+bash /path/to/cloud-materials-common/setup-consumer.sh .
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+也可以手动执行：
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+git clone git@github.com:Charlie-BU/cloud-materials-common.git ./cloud-materials-common
 ```
+
+生成的 `./cloud-materials-common/` 已加入 `.gitignore`，不会被提交到消费项目。
+Vite 在 `vite.config.ts` 中通过 alias 从固定目录读取组件库：
+
+```ts
+import { fileURLToPath, URL } from "node:url";
+
+const cloudMaterialsPath = fileURLToPath(
+    new URL("./cloud-materials-common/@cloud-materials/common", import.meta.url)
+);
+
+export default defineConfig({
+    resolve: {
+        alias: {
+            "@cloud-materials/common": cloudMaterialsPath,
+        },
+        dedupe: ["react", "react-dom"],
+    },
+});
+```
+
+`tsconfig.app.json` 同时配置类型和子路径解析：
+
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@cloud-materials/common": [
+        "cloud-materials-common/@cloud-materials/common"
+      ],
+      "@cloud-materials/common/*": [
+        "cloud-materials-common/@cloud-materials/common/*"
+      ]
+    }
+  }
+}
+```
+
+组件库路径采用固定的项目根目录约定，不需要配置环境变量。
+
+随后照常执行：
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Vite 会从该离线目录解析组件库及其子路径，并强制与本项目共用 React 18。
