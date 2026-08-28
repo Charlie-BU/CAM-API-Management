@@ -32,6 +32,37 @@
     white-space: nowrap;
 }
 
+.aiMenuContent {
+    display: inline-flex;
+    align-items: center;
+}
+
+.aiMenuIcon {
+    margin-right: 8px;
+    filter: saturate(1.2) brightness(1.08)
+        drop-shadow(0 0 6px rgba(89, 95, 255, 0.18));
+}
+
+.aiMenuIcon path {
+    fill: url(#svg_ed93eab349__a);
+}
+
+.aiMenuGradientText {
+    background: linear-gradient(
+        90deg,
+        #00c2ff 0%,
+        #1d70ff 35%,
+        #4b5dff 65%,
+        #b500ff 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    font-weight: 500;
+    text-shadow: 0 0 10px rgba(75, 93, 255, 0.12);
+}
+
 .tree {
     :global(.arco-tree-node) {
         padding: 6px 4px;

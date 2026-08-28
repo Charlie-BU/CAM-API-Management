@@ -6,7 +6,9 @@ import {
     Menu,
     Button,
     IconDelete,
+    IconPlus,
 } from "@cloud-materials/common";
+import { IconAiLine } from "@cloud-materials/common/ve-o-iconbox";
 
 import styles from "../index.module.less";
 import { handleConfirm, inIterationWarning } from "@/utils";
@@ -70,9 +72,18 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     );
 
     const inIterationOperations = (
-        <Menu style={{ width: 100 }}>
+        <Menu>
             <Menu.Item key="1" onClick={handleAddApi}>
+                <IconPlus style={{ marginRight: 8 }} />
                 创建 API
+            </Menu.Item>
+            <Menu.Item key="1" onClick={handleAddApi}>
+                <span className={styles.aiMenuContent}>
+                    <IconAiLine className={styles.aiMenuIcon} />
+                    <span className={styles.aiMenuGradientText}>
+                        智能创建 API
+                    </span>
+                </span>
             </Menu.Item>
         </Menu>
     );
