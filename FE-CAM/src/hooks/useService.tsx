@@ -43,6 +43,10 @@ import type { UserProfile } from "@/services/user/types";
 import { genApiMethodTag } from "@/utils";
 import AddCategoryForm from "@/components/ApiManagement/ApiList/AddCategoryForm";
 import AddApiForm from "@/components/ApiManagement/ApiList/AddApiForm";
+import SmartCreateApiForm, {
+    SmartCreateApiTitle,
+} from "@/components/ApiManagement/ApiList/SmartCreateApiForm";
+import { IconAiLine } from "@cloud-materials/common/ve-o-iconbox";
 
 import {
     AddApi,
@@ -53,6 +57,8 @@ import {
     UpdateApiByApiDraftId,
     UpdateApiCategoryById,
 } from "@/services/api";
+import { GenerateApiProposal } from "@/services/ai";
+import type { AiApiProposal } from "@/services/ai/types";
 import CompleteIterationForm from "@/components/ApiManagement/ApiList/CompleteIterationForm";
 import type {
     AddApiRequest,
@@ -850,6 +856,85 @@ export const useServiceIteration = (
         });
     }, [iterationId, fetchIterationDetail]);
 
+    const handleSmartCreateApi = useCallback(
+        (
+            onCreated: (data: {
+                apiDraftId: number;
+                proposal: AiApiProposal;
+            }) => void,
+        ) => {
+            const modal = CModal.openArcoForm({
+                title: <SmartCreateApiTitle />,
+                content: <SmartCreateApiForm />,
+                cancelText: t("common.cancel"),
+                okText: "AI 识别",
+                okButtonProps: {
+                    icon: <IconAiLine />,
+                },
+                onOk: async (values, form) => {
+                    try {
+                        await form.validate();
+                        const res = await GenerateApiProposal(
+                            iterationId,
+                            values.prompt.trim(),
+                        );
+                        if (res.status !== 200 || !res.proposal) {
+                            throw new Error(res.message || "AI 识别失败");
+                        }
+
+                        if ("missing_fields" in res.proposal) {
+                            const fieldNames = res.proposal.missing_fields.map(
+                                (field) =>
+                                    field === "method"
+                                        ? "请求方法"
+                                        : "API 路径",
+                            );
+                            Message.warning(
+                                `请补充以下信息：${fieldNames.join("、")}`,
+                            );
+                            throw new Error("AI 识别信息不完整");
+                        }
+                        if ("duplicate_api" in res.proposal) {
+                            Message.warning(
+                                res.proposal.message || "API 已存在，不能重复创建",
+                            );
+                            throw new Error("API 已存在");
+                        }
+
+                        const proposal = res.proposal;
+                        const addRes = await AddApi({
+                            service_iteration_id: iterationId,
+                            ...proposal.add_api,
+                        });
+                        if (addRes.status !== 200 || !addRes.api) {
+                            throw new Error(addRes.message || "API 添加失败");
+                        }
+
+                        await fetchIterationDetail();
+                        modal.close();
+                        onCreated({
+                            apiDraftId: addRes.api.id,
+                            proposal,
+                        });
+                        Message.success("API 创建成功，请补充或确认参数后手动保存");
+                    } catch (err: unknown) {
+                        const msg =
+                            err instanceof Error ? err.message : "AI 识别失败";
+                        if (
+                            msg !== "AI 识别信息不完整" &&
+                            msg !== "API 已存在"
+                        ) {
+                            Message.warning(msg);
+                        }
+                        // 抛出错误以阻止弹窗关闭，保留用户输入。
+                        throw err;
+                    }
+                },
+            });
+        },
+        [iterationId, fetchIterationDetail],
+    );
+
     const handleCopyApi = useCallback(
         async (apiDraftId: number) => {
             const res = await CopyApiByApiDraftId({
@@ -907,6 +992,7 @@ export const useServiceIteration = (
         iterationTreeData,
         fetchIterationDetail,
         handleAddApi,
+        handleSmartCreateApi,
         handleCopyApi,
         handleDeleteApi,
         handleSaveApiDraft,

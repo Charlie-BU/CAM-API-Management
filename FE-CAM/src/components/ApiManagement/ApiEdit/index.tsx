@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Button,
     Space,
@@ -13,6 +13,8 @@ import BriefInfoEdit from "./BriefInfoEdit";
 import {
     transformReqParamsToApiInput,
     transformRespParamsToApiInput,
+    transformAiReqParamsToFormValues,
+    transformAiRespParamsToFormValues,
 } from "./utils";
 import type {
     ApiDetail,
@@ -48,12 +50,18 @@ interface ApiEditHandlers {
 interface ApiEditProps {
     loading: boolean;
     apiDetail: ApiDetail | ApiDraftDetail;
+    aiPrefill?: {
+        apiDraftId: number;
+        reqParams: ApiReqParamInput[];
+        respParams: ApiRespParamInput[];
+    } | null;
     handlers: ApiEditHandlers;
 }
 
 const ApiEdit: React.FC<ApiEditProps> = ({
     loading,
     apiDetail,
+    aiPrefill,
     handlers: { handleSaveApiDraft, handleCopyApi, handleDeleteApi },
 }) => {
     const [form] = Form.useForm();
@@ -61,6 +69,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
     const [isDraft, setIsDraft] = useState(false);
     const [reqParamsActiveTab, setReqParamsActiveTab] = useState("query");
     const [rejectSubmit, setRejectSubmit] = useState(false); // 是否由于表单填写不全拒绝提交
+    const appliedAiPrefillIdRef = useRef<number | null>(null);
 
     const getFirstTabWithValue = () => {
         if (!apiDetail.request_params_by_location) {
@@ -82,6 +91,33 @@ const ApiEdit: React.FC<ApiEditProps> = ({
         setIsDraft(false);
         setReqParamsActiveTab(getFirstTabWithValue());
     }, [apiDetail, form]);
+
+    useEffect(() => {
+        if (
+            !aiPrefill ||
+            apiDetail.id !== aiPrefill.apiDraftId ||
+            appliedAiPrefillIdRef.current === aiPrefill.apiDraftId
+        ) {
+            return;
+        }
+        const requestParamsByLocation = transformAiReqParamsToFormValues(
+            aiPrefill.reqParams,
+        );
+        const responseParamsByStatusCode = transformAiRespParamsToFormValues(
+            aiPrefill.respParams,
+        );
+        form.setFieldsValue({
+            ...apiDetail,
+            request_params_by_location: requestParamsByLocation,
+            response_params_by_status_code: responseParamsByStatusCode,
+        });
+        const firstActiveTab = tabs.find(
+            (tab) => requestParamsByLocation[tab.key as ParamLocation].length,
+        );
+        setReqParamsActiveTab(firstActiveTab?.key || "query");
+        setIsDraft(true);
+        appliedAiPrefillIdRef.current = aiPrefill.apiDraftId;
+    }, [aiPrefill, apiDetail, form]);
 
     // 提交本次apiDraft改动
     const handleSubmit = async () => {

@@ -17,6 +17,7 @@ const { Search } = Input;
 
 interface ApiListHandlers {
     handleAddApi: () => void;
+    handleSmartCreateApi: () => void;
     handleAddCategory: () => void;
     handleUpdateApiCategory: (apiId: number, categoryId: number) => void;
     handleDeleteCategory: (categoryId: number) => void;
@@ -29,15 +30,23 @@ interface ApiListProps {
     isLatest: boolean;
     treeData: any[];
     handlers: ApiListHandlers;
+    selectedApiId: number;
     setSelectedApiId: (apiId: number) => void;
 }
 
 const ApiList: React.FC<ApiListProps> = (props) => {
-    const { inIteration, isLatest, treeData, handlers, setSelectedApiId } =
-        props;
+    const {
+        inIteration,
+        isLatest,
+        treeData,
+        handlers,
+        selectedApiId,
+        setSelectedApiId,
+    } = props;
 
     const {
         handleAddApi,
+        handleSmartCreateApi,
         handleAddCategory,
         handleUpdateApiCategory,
         handleDeleteCategory,
@@ -63,6 +72,12 @@ const ApiList: React.FC<ApiListProps> = (props) => {
         setSelectedKeys([firstOptionKey]);
     }, [firstOptionKey]);
 
+    useEffect(() => {
+        if (selectedApiId > 0) {
+            setSelectedKeys([String(selectedApiId)]);
+        }
+    }, [selectedApiId]);
+
     const otherOperations = (
         <Menu style={{ width: 100 }}>
             <Menu.Item key="1" onClick={handleAddCategory}>
@@ -73,11 +88,11 @@ const ApiList: React.FC<ApiListProps> = (props) => {
 
     const inIterationOperations = (
         <Menu>
-            <Menu.Item key="1" onClick={handleAddApi}>
+            <Menu.Item key="create-api" onClick={handleAddApi}>
                 <IconPlus style={{ marginRight: 8 }} />
                 创建 API
             </Menu.Item>
-            <Menu.Item key="1" onClick={handleAddApi}>
+            <Menu.Item key="smart-create-api" onClick={handleSmartCreateApi}>
                 <span className={styles.aiMenuContent}>
                     <IconAiLine className={styles.aiMenuIcon} />
                     <span className={styles.aiMenuGradientText}>
