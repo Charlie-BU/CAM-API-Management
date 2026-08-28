@@ -3,6 +3,7 @@ from robyn.robyn import Response
 from subRouters.v1.user import userRouterV1
 from subRouters.v1.service import serviceRouterV1
 from subRouters.v1.api import apiRouterV1
+from subRouters.v1.ai import aiRouterV1
 from database.database import initialize_database
 
 import json
@@ -20,6 +21,7 @@ app.startup_handler(initialize_database)
 app.include_router(userRouterV1)
 app.include_router(serviceRouterV1)
 app.include_router(apiRouterV1)
+app.include_router(aiRouterV1)
 
 # 生产环境需要注释：使用nginx解决跨域问题
 ALLOW_CORS(app, origins=CORS_ORIGINS)

@@ -9,6 +9,7 @@ import ApiList from "./ApiList";
 import ApiEdit from "./ApiEdit";
 import { Layout, Spin } from "@cloud-materials/common";
 import type { UserProfile } from "@/services/user/types";
+import type { AiApiProposal } from "@/services/ai/types";
 import { inIterationWarning } from "@/utils";
 
 const ApiManagement: React.FC = () => {
@@ -52,6 +53,11 @@ const ApiManagement: React.FC = () => {
 
     // 用于控制当前 API 相关逻辑
     const [selectedApiId, setSelectedApiId] = useState<number>(-1);
+    const [aiPrefill, setAiPrefill] = useState<{
+        apiDraftId: number;
+        reqParams: AiApiProposal["req_params"];
+        respParams: AiApiProposal["resp_params"];
+    } | null>(null);
 
     const { loading: apiLoading, apiDetail } = useApi(
         selectedApiId,
@@ -63,6 +69,7 @@ const ApiManagement: React.FC = () => {
         iterationDetail,
         iterationTreeData,
         handleAddApi,
+        handleSmartCreateApi,
         handleSaveApiDraft,
         handleCopyApi,
         handleDeleteApi,
@@ -129,11 +136,21 @@ const ApiManagement: React.FC = () => {
                                 ? iterationTreeData
                                 : treeData
                         }
+                        selectedApiId={selectedApiId}
                         setSelectedApiId={(id) => {
                             setSelectedApiId(id);
                         }}
                         handlers={{
                             handleAddApi,
+                            handleSmartCreateApi: () =>
+                                handleSmartCreateApi(({ apiDraftId, proposal }) => {
+                                    setAiPrefill({
+                                        apiDraftId,
+                                        reqParams: proposal.req_params,
+                                        respParams: proposal.resp_params,
+                                    });
+                                    setSelectedApiId(apiDraftId);
+                                }),
                             handleAddCategory,
                             handleUpdateApiCategory,
                             handleDeleteCategory,
@@ -147,6 +164,7 @@ const ApiManagement: React.FC = () => {
                         <ApiEdit
                             loading={iterationLoading || apiLoading}
                             apiDetail={apiDetail}
+                            aiPrefill={aiPrefill}
                             handlers={{
                                 handleSaveApiDraft,
                                 handleCopyApi,

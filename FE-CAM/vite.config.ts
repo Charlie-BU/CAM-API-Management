@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => {
     const cloudMaterialsPath = fileURLToPath(
         new URL("./cloud-materials-common/@cloud-materials/common", import.meta.url)
     );
+    const nativeMapShimPath = fileURLToPath(
+        new URL("./src/shims/babel-runtime-map.ts", import.meta.url)
+    );
 
     return {
         plugins: [react()],
@@ -16,6 +19,10 @@ export default defineConfig(({ mode }) => {
             alias: {
                 "@": fileURLToPath(new URL("./src", import.meta.url)),
                 "@cloud-materials/common": cloudMaterialsPath,
+                // `@storage-fe/formily-arco` 会引入这个 core-js-pure 包装模块。
+                // Vite 在生产构建时转换 CommonJS，可能将其默认导出转换为不可构造的对象。
+                // 现代浏览器已原生支持 Map，因此这里将该模块解析为原生 Map 构造函数。
+                "@babel/runtime-corejs3/core-js-stable/map": nativeMapShimPath,
             },
             dedupe: ["react", "react-dom"],
         },

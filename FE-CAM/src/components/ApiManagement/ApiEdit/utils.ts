@@ -61,6 +61,65 @@ export const transformRespParamsToApiInput = (
     return resp_params;
 };
 
+type FormParamItem = ParamItem & { children_params?: FormParamItem[] };
+
+const transformReqParamToFormItem = (
+    param: ApiReqParamInput,
+): FormParamItem => ({
+    id: generateId(),
+    name: param.name,
+    type: param.type,
+    required: param.required ?? false,
+    default_value: param.default_value ?? "",
+    description: param.description ?? "",
+    example: param.example ?? "",
+    array_child_type: param.array_child_type ?? undefined,
+    children_params: param.children?.map(transformReqParamToFormItem),
+});
+
+const transformRespParamToFormItem = (
+    param: ApiRespParamInput,
+): FormParamItem => ({
+    id: generateId(),
+    name: param.name,
+    type: param.type,
+    required: param.required ?? false,
+    description: param.description ?? "",
+    example: param.example ?? "",
+    array_child_type: param.array_child_type ?? undefined,
+    children_params: param.children?.map(transformRespParamToFormItem),
+});
+
+export const transformAiReqParamsToFormValues = (
+    params: ApiReqParamInput[],
+): Record<ParamLocation, FormParamItem[]> => {
+    const result: Record<ParamLocation, FormParamItem[]> = {
+        query: [],
+        path: [],
+        header: [],
+        cookie: [],
+        body: [],
+    };
+    params.forEach((param) => {
+        const location = param.location;
+        if (location) {
+            result[location].push(transformReqParamToFormItem(param));
+        }
+    });
+    return result;
+};
+
+export const transformAiRespParamsToFormValues = (
+    params: ApiRespParamInput[],
+): Record<string, FormParamItem[]> => {
+    return params.reduce<Record<string, FormParamItem[]>>((result, param) => {
+        const statusCode = String(param.status_code ?? 200);
+        result[statusCode] ||= [];
+        result[statusCode].push(transformRespParamToFormItem(param));
+        return result;
+    }, {});
+};
+
 const processRespItems = (
     list: ParamItem[],
     statusCode: number
