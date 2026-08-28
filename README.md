@@ -1,4 +1,4 @@
-# BE-CAM 后端服务
+# CAM 后端服务
 
 CAM（API Management）的后端服务，负责用户鉴权、服务与接口资产管理、版本迭代，以及 API 草稿的 AI 生成。它是管理台与 `cam-fe-code-generator` CLI 共同依赖的服务端事实来源。
 
