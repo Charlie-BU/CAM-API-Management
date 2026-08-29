@@ -346,19 +346,6 @@ def apiAddApi(
         return check_res["error"]
     service_iteration = check_res["service_iteration"]
     # 检查当前服务中是否已存在同名同路径的api
-    # 当前服务最新版本的api
-    existing_api = (
-        db.query(Api)
-        .filter(
-            Api.service_id == service_iteration.service_id,
-            Api.method == method,
-            or_(
-                Api.path == path,
-                Api.name == name,
-            ),
-        )
-        .first()
-    )
     # 当前迭代周期的api草稿
     existing_api_draft = (
         db.query(ApiDraft)
@@ -372,7 +359,7 @@ def apiAddApi(
         )
         .first()
     )
-    if existing_api or existing_api_draft:
+    if existing_api_draft:
         return {
             "status": -1,
             "message": "Api method and name/path already exists in this service",
