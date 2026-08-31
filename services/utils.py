@@ -229,6 +229,13 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
                     case _:
                         schema["default"] = param.get("default_value")
 
+        # OpenAPI 3.1 adopts JSON Schema: nullability is represented by a
+        # union type, not OpenAPI 3.0's deprecated `nullable: true` keyword.
+        if param.get("nullable"):
+            schema_type = schema.get("type")
+            if isinstance(schema_type, str):
+                schema["type"] = [schema_type, "null"]
+
         return schema
 
     def _build_root_schema(params: List[Dict], schema_name: str = None) -> Dict:
