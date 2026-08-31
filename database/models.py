@@ -238,6 +238,8 @@ class RequestParam(Base, SerializableMixin):
         Enum(ParamType), nullable=False
     )  # string/int/double/boolean/array/object/binary
     required = Column(Boolean, default=False)
+    # 与 required 独立：参数存在时是否允许传 JSON null。
+    nullable = Column(Boolean, nullable=False, default=False, server_default="false")
     default_value = Column(String(256), nullable=True)
     description = Column(Text)
     example = Column(String(256))
@@ -273,6 +275,7 @@ class ResponseParam(Base, SerializableMixin):
     name = Column(String(64), nullable=False, index=True)
     type = Column(Enum(ParamType), nullable=False)
     required = Column(Boolean, default=False)
+    nullable = Column(Boolean, nullable=False, default=False, server_default="false")
     description = Column(Text)
     example = Column(String(256))
 
@@ -353,6 +356,7 @@ class RequestParamDraft(Base, SerializableMixin):
         Enum(ParamType), nullable=False
     )  # string/int/double/boolean/array/object/binary
     required = Column(Boolean, default=False)
+    nullable = Column(Boolean, nullable=False, default=False, server_default="false")
     default_value = Column(String(256), nullable=True)
     description = Column(Text)
     example = Column(String(256))
@@ -389,6 +393,7 @@ class ResponseParamDraft(Base, SerializableMixin):
     name = Column(String(64), nullable=False, index=True)
     type = Column(Enum(ParamType), nullable=False)
     required = Column(Boolean, default=False)
+    nullable = Column(Boolean, nullable=False, default=False, server_default="false")
     description = Column(Text)
     example = Column(String(256))
 

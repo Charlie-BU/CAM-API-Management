@@ -422,6 +422,7 @@ def _copy_params_recursively(
                 location=param.location,
                 type=param.type,
                 required=param.required,
+                nullable=param.nullable,
                 default_value=param.default_value,
                 description=param.description,
                 example=param.example,
@@ -435,6 +436,7 @@ def _copy_params_recursively(
                 name=param.name,
                 type=param.type,
                 required=param.required,
+                nullable=param.nullable,
                 description=param.description,
                 example=param.example,
                 array_child_type=param.array_child_type,
@@ -643,6 +645,7 @@ def _process_params_recursively(
         param_name = param["name"]
         param_type = param["type"]
         param_required = param.get("required", False)
+        param_nullable = param.get("nullable", False)
         param_default_value = param.get("default_value")
         param_description = param.get("description")
         param_example = param.get("example")
@@ -654,6 +657,11 @@ def _process_params_recursively(
             param_location = parent_location
         else:
             param_location = param.get("location", "body")
+
+        # path 参数必须是必填的，且不能为null
+        if param_location == ParamLocation.PATH.value:
+            param_required = True
+            param_nullable = False
 
         # 验证并转换枚举值
         try:
@@ -682,6 +690,7 @@ def _process_params_recursively(
                 location=param_location_enum,
                 type=param_type_enum,
                 required=param_required,
+                nullable=param_nullable,
                 default_value=param_default_value,
                 description=param_description,
                 example=param_example,
@@ -697,6 +706,7 @@ def _process_params_recursively(
                 name=param_name,
                 type=param_type_enum,
                 required=param_required,
+                nullable=param_nullable,
                 description=param_description,
                 example=param_example,
                 array_child_type=param_array_child_type_enum,

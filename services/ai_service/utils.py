@@ -64,6 +64,7 @@ def validateParams(
             "name",
             "type",
             "required",
+            "nullable",
             "description",
             "example",
             "array_child_type",
@@ -83,6 +84,8 @@ def validateParams(
             raise ValueError("参数类型不合法")
         if not isinstance(param["required"], bool):
             raise ValueError("required 必须为布尔值")
+        if not isinstance(param["nullable"], bool):
+            raise ValueError("nullable 必须为布尔值")
 
         if isRequest:
             if isChild:
@@ -90,6 +93,11 @@ def validateParams(
                     raise ValueError("请求子参数不能包含 location")
             elif param.get("location") not in validLocations:
                 raise ValueError("请求参数 location 不合法")
+            elif (
+                param.get("location") == ParamLocation.PATH.value
+                and (not param["required"] or param["nullable"])
+            ):
+                raise ValueError("Path 参数必须 required=true 且 nullable=false")
         else:
             statusCode = param["status_code"]
             if not isinstance(statusCode, int) or not 100 <= statusCode <= 599:

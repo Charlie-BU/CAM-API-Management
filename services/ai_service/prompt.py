@@ -32,11 +32,11 @@ def buildSystemMessage() -> str:
 - add_api.name、add_api.method、add_api.path、add_api.description 必须是非空字符串；name 使用英文。若用户没有明确名称，基于 path 和现有草稿的命名风格推断名称；若用户没有明确接口描述，根据接口语义推断简洁准确的 description；path 必须以 / 开头。
 - level 固定输出 "P2"；category_id 固定输出 null，不要选择或推断分类。
 - req_params 和 resp_params 必须是数组；没有参数时输出 []。
-- 每个请求参数包含 name、location、type、required、default_value、description、example、array_child_type、children。location 仅允许 query/path/header/cookie/body；type 仅允许 string/int/double/boolean/array/object/binary。
-- 每个响应参数包含 status_code、name、type、required、description、example、array_child_type、children；status_code 为 100 至 599 的整数，通常为 200。
+- 每个请求参数包含 name、location、type、required、nullable、default_value、description、example、array_child_type、children。location 仅允许 query/path/header/cookie/body；type 仅允许 string/int/double/boolean/array/object/binary。
+- 每个响应参数包含 status_code、name、type、required、nullable、description、example、array_child_type、children；status_code 为 100 至 599 的整数，通常为 200。
 - 所有参数的 description 必须输出；若用户没有明确参数描述，根据参数名称、位置、类型及其所在接口语义推断简洁准确的 description。
 - object 参数，或 array 且 array_child_type 为 object 的参数，可用 children 表示子参数；否则 children 为 null。所有子参数不得包含 location；它们继承父请求参数的 location。
-- 所有 path 参数必须 required=true，且 add_api.path 必须包含对应的 {name}。
+- required 仅表示字段是否必须出现；nullable 表示出现时是否可为 JSON null，二者独立。所有 path 参数必须 required=true、nullable=false，且 add_api.path 必须包含对应的 {name}。
 - 输出字段名、枚举值与数据类型必须完全匹配上述合同。
 
 以下是成功结果的 few-shot 示例。用户需求为“为用户创建订单，可选指定优惠券，订单包含多个商品；返回订单和商品明细”时，输出应采用如下结构：
@@ -51,32 +51,32 @@ def buildSystemMessage() -> str:
   },
   "req_params": [
     {
-      "name": "user_id", "location": "path", "type": "int", "required": true,
+      "name": "user_id", "location": "path", "type": "int", "required": true, "nullable": false,
       "default_value": null, "description": "用户 ID", "example": "1001",
       "array_child_type": null, "children": null
     },
     {
-      "name": "coupon_code", "location": "query", "type": "string", "required": false,
+      "name": "coupon_code", "location": "query", "type": "string", "required": false, "nullable": true,
       "default_value": null, "description": "优惠券编码", "example": "SAVE10",
       "array_child_type": null, "children": null
     },
     {
-      "name": "order", "location": "body", "type": "object", "required": true,
+      "name": "order", "location": "body", "type": "object", "required": true, "nullable": false,
       "default_value": null, "description": "订单信息", "example": "{}",
       "array_child_type": null,
       "children": [
         {
-          "name": "items", "type": "array", "required": true,
+          "name": "items", "type": "array", "required": true, "nullable": false,
           "default_value": null, "description": "商品列表", "example": "[]",
           "array_child_type": "object",
           "children": [
             {
-              "name": "sku_id", "type": "int", "required": true,
+              "name": "sku_id", "type": "int", "required": true, "nullable": false,
               "default_value": null, "description": "商品 SKU ID", "example": "2001",
               "array_child_type": null, "children": null
             },
             {
-              "name": "quantity", "type": "int", "required": true,
+              "name": "quantity", "type": "int", "required": true, "nullable": false,
               "default_value": null, "description": "购买数量", "example": "2",
               "array_child_type": null, "children": null
             }
@@ -87,21 +87,21 @@ def buildSystemMessage() -> str:
   ],
   "resp_params": [
     {
-      "status_code": 200, "name": "order_id", "type": "int", "required": true,
+      "status_code": 200, "name": "order_id", "type": "int", "required": true, "nullable": false,
       "description": "创建成功的订单 ID", "example": "3001",
       "array_child_type": null, "children": null
     },
     {
-      "status_code": 200, "name": "items", "type": "array", "required": true,
+      "status_code": 200, "name": "items", "type": "array", "required": true, "nullable": false,
       "description": "订单商品明细", "example": "[]", "array_child_type": "object",
       "children": [
         {
-          "status_code": 200, "name": "sku_id", "type": "int", "required": true,
+          "status_code": 200, "name": "sku_id", "type": "int", "required": true, "nullable": false,
           "description": "商品 SKU ID", "example": "2001",
           "array_child_type": null, "children": null
         },
         {
-          "status_code": 200, "name": "quantity", "type": "int", "required": true,
+          "status_code": 200, "name": "quantity", "type": "int", "required": true, "nullable": false,
           "description": "购买数量", "example": "2",
           "array_child_type": null, "children": null
         }
