@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from mailer import send_email
 from sqlalchemy.orm import Session
@@ -16,6 +17,25 @@ from database.models import (
     ResponseParamDraft,
 )
 from services.utils import checkServiceIterationPermission, openapiTemplate
+
+
+async def sendCommitIterationNotification(
+    recipients: list[str],
+    service_uuid: str,
+    new_version: str,
+    operator_nickname: str,
+    operator_username: str,
+    operator_email: str,
+) -> None:
+    mail_res = await send_email(
+        to_email=recipients,
+        subject=f"服务 {service_uuid} 版本更新",
+        content=f"您好！您负责 / 维护的服务 {service_uuid} 已更新到版本 {new_version}。\n"
+        f"可通过 https://cam-api.com/service?uuid={service_uuid} 查看详情。\n\n"
+        f"操作人：{operator_nickname} ({operator_username}) - {operator_email}\n",
+    )
+    if mail_res["status"] != 200:
+        print(f"Send email failed: {mail_res.get('message', 'Unknown error')}")
 
 
 # 获取全部服务
@@ -847,21 +867,22 @@ async def serviceCommitIteration(
     service_iteration.version = new_version
     service_iteration.is_committed = True
     db.commit()
-    # 发送邮件通知当前service全部相关人
-    # 收集收件人并去重
+
+    # 邮件通知不应阻塞已完成的迭代提交。
     recipients = {service.owner.email}
     for maintainer in service.maintainers:
         if maintainer.email:
             recipients.add(maintainer.email)
-    mailRes = await send_email(
-        to_email=list(recipients),
-        subject=f"服务 {service.service_uuid} 版本更新",
-        content=f"您好！您负责 / 维护的服务 {service.service_uuid} 已更新到版本 {new_version}。\n"
-        f"可通过 https://cam-api.com/service?uuid={service.service_uuid} 查看详情。\n\n"
-        f"操作人：{check_res["user"].nickname} ({check_res["user"].username}) - {check_res["user"].email}\n",
+    asyncio.create_task(
+        sendCommitIterationNotification(
+            recipients=list(recipients),
+            service_uuid=service.service_uuid,
+            new_version=new_version,
+            operator_nickname=check_res["user"].nickname,
+            operator_username=check_res["user"].username,
+            operator_email=check_res["user"].email,
+        )
     )
-    if mailRes["status"] != 200:
-        print(f"Send email failed: {mailRes.get('message', 'Unknown error')}")
     return {
         "status": 200,
         "message": "Commit service iteration success",
