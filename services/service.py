@@ -524,7 +524,7 @@ def serviceRestoreServiceById(db: Session, id: int, user_id: int) -> dict:
     }
 
 
-# 通过service_iteration_id删除服务历史版本
+# 通过service_iteration_id删除服务历史版本或未提交迭代及其全部草稿数据
 def serviceDeleteIterationById(
     db: Session, service_iteration_id: int, user_id: int
 ) -> dict:
@@ -549,7 +549,23 @@ def serviceDeleteIterationById(
             "status": -2,
             "message": "You are neither the owner of this service, nor the creator of this service iteration",
         }
-    db.delete(service_iteration)
+    api_draft_ids = db.query(ApiDraft.id).filter(
+        ApiDraft.service_iteration_id == service_iteration_id
+    )
+    db.query(RequestParamDraft).filter(
+        RequestParamDraft.api_draft_id.in_(api_draft_ids)
+    ).delete(synchronize_session=False)
+    db.query(ResponseParamDraft).filter(
+        ResponseParamDraft.api_draft_id.in_(api_draft_ids)
+    ).delete(synchronize_session=False)
+    db.query(ApiDraft).filter(
+        ApiDraft.service_iteration_id == service_iteration_id
+    ).delete(synchronize_session=False)
+    # api_drafts 关系可能已加载在 Session 中；直接删除实例会让 ORM 尝试
+    # 将内存中草稿的 service_iteration_id 置空，违反数据库非空约束。
+    db.query(ServiceIteration).filter(
+        ServiceIteration.id == service_iteration_id
+    ).delete(synchronize_session=False)
     db.commit()
     return {
         "status": 200,
