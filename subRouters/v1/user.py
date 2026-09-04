@@ -1,4 +1,12 @@
-from services.user import userGetUserByUsernameOrNicknameOrEmail, userModifyPassword
+import json
+
+from services.user import (
+    GoogleAuthError,
+    userGetUserByUsernameOrNicknameOrEmail,
+    userGoogleLogin,
+    userLinkGoogleIdentity,
+    userModifyPassword,
+)
 from robyn import SubRouter
 from robyn.robyn import Request, Response
 from robyn.authentication import BearerGetter
@@ -23,6 +31,20 @@ def handle_exception(error):
 
 # 鉴权中间件
 userRouterV1.configure_authentication(AuthHandler(token_getter=BearerGetter()))
+
+
+def googleAuthErrorResponse(error: GoogleAuthError):
+    return Response(
+        status_code=error.http_status,
+        description=json.dumps(
+            {
+                "status": error.http_status,
+                "code": error.code,
+                "message": error.message,
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
 
 
 # 通过用户id获取用户详情
@@ -78,6 +100,35 @@ async def login(request: Request):
     with session() as db:
         res = userLogin(db=db, username=username, password=password)
     return res
+
+
+# Google 用户登录
+@userRouterV1.post("/login/google")
+async def googleLogin(request: Request):
+    data = request.json()
+    credential = data.get("credential", "") if isinstance(data, dict) else ""
+    try:
+        with session() as db:
+            return userGoogleLogin(db=db, credential=credential)
+    except GoogleAuthError as error:
+        return googleAuthErrorResponse(error)
+
+
+# 为当前用户绑定 Google 身份
+@userRouterV1.post("/link/google", auth_required=True)
+async def linkGoogle(request: Request):
+    data = request.json()
+    credential = data.get("credential", "") if isinstance(data, dict) else ""
+    user_id = userGetUserIdByAccessToken(request=request)
+    try:
+        with session() as db:
+            return userLinkGoogleIdentity(
+                db=db,
+                user_id=user_id,
+                credential=credential,
+            )
+    except GoogleAuthError as error:
+        return googleAuthErrorResponse(error)
 
 
 # 用户注册

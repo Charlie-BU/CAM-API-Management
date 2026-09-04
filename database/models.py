@@ -96,9 +96,14 @@ class User(Base, SerializableMixin):
     services = relationship(
         "Service", secondary=user_service_link, back_populates="maintainers"
     )
+    auth_identities = relationship(
+        "UserAuthIdentity",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     username = Column(String(64), unique=True, nullable=False, index=True)
-    password = Column(String(128), nullable=False)
+    password = Column(String(128), nullable=True)
     nickname = Column(String(64), nullable=True, index=True)
     email = Column(String(128), nullable=True, unique=True)
     role = Column(Enum(UserRole), default=UserRole.GUEST)
@@ -111,10 +116,55 @@ class User(Base, SerializableMixin):
         return hashed.decode("utf-8")
 
     def checkPassword(self, password):
+        if not self.password:
+            return False
         return checkpw(password.encode("utf-8"), self.password.encode("utf-8"))
+
+    # 自定义toJson方法，包含密码和第三方身份信息
+    def toJson(self, include=None, exclude=["password"], include_relations=False):
+        data = super().toJson(include, exclude, include_relations)
+        data["has_password"] = bool(self.password)
+        data["auth_providers"] = sorted(
+            {identity.provider for identity in self.auth_identities}
+        )
+        return data
 
     def __repr__(self):
         return f"<User {self.username}>"
+
+
+# ---- 用户第三方身份表 ----
+class UserAuthIdentity(Base, SerializableMixin):
+    __tablename__ = "user_auth_identity"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "provider_subject",
+            name="uq_user_auth_identity_provider_subject",
+        ),
+        UniqueConstraint(
+            "user_id",
+            "provider",
+            name="uq_user_auth_identity_user_provider",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user = relationship("User", back_populates="auth_identities")
+    provider = Column(String(32), nullable=False)
+    provider_subject = Column(String(255), nullable=False)
+    provider_email = Column(String(128), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    last_login_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    def __repr__(self):
+        return f"<UserAuthIdentity {self.provider}:{self.user_id}>"
 
 
 # ---- 服务表 ----

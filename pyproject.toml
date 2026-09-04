@@ -10,6 +10,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "bcrypt>=5.0.0",
     "certifi>=2026.1.4",
+    "google-auth[requests]>=2.40.0",
     "openai>=3.5.0",
     "psycopg2-binary>=2.9.11",
     "python-dotenv>=1.0.0",

@@ -1,1 +1,1 @@
-uv run robyn -m app --dev
+uv run robyn -m app

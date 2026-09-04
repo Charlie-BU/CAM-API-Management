@@ -1,19 +1,32 @@
 from urllib.parse import unquote
 from robyn.robyn import Request
-from sqlalchemy import or_
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from jose import jwt
+from google.auth.exceptions import TransportError
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
+import hashlib
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 
-from database.models import User
+from database.models import User, UserAuthIdentity
 from database.enums import UserRole
 
 # 加载 .env 文件
 load_dotenv()
 ALGORITHM = os.getenv("ALGORITHM")
 SECRET_KEY = os.getenv("LOGIN_SECRET")
+
+
+class GoogleAuthError(Exception):
+    def __init__(self, http_status: int, code: str, message: str):
+        super().__init__(message)
+        self.http_status = http_status
+        self.code = code
+        self.message = message
 
 
 # 生成access token
@@ -66,6 +79,214 @@ def userGetUserById(db: Session, id: int) -> dict:
         "message": "Get user success",
         "user": user.toJson(),
     }
+
+
+def verifyGoogleCredential(credential: str) -> dict:
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    if not client_id:
+        raise GoogleAuthError(
+            503,
+            "GOOGLE_AUTH_NOT_CONFIGURED",
+            "Google login is not configured",
+        )
+    if not credential:
+        raise GoogleAuthError(400, "INVALID_REQUEST", "credential is required")
+    try:
+        payload = google_id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            client_id,
+        )
+    except ValueError as error:
+        raise GoogleAuthError(
+            401,
+            "INVALID_GOOGLE_CREDENTIAL",
+            "Invalid Google credential",
+        ) from error
+    except TransportError as error:
+        raise GoogleAuthError(
+            503,
+            "GOOGLE_AUTH_UNAVAILABLE",
+            "Google identity verification is temporarily unavailable",
+        ) from error
+
+    if payload.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
+        raise GoogleAuthError(
+            401,
+            "INVALID_GOOGLE_CREDENTIAL",
+            "Invalid Google credential issuer",
+        )
+    subject = payload.get("sub")
+    email = payload.get("email")
+    if not subject or not email or payload.get("email_verified") is not True:
+        raise GoogleAuthError(
+            401,
+            "UNVERIFIED_GOOGLE_ACCOUNT",
+            "Google account email is not verified",
+        )
+    if len(str(subject)) > 255 or len(str(email).strip()) > 128:
+        raise GoogleAuthError(
+            401,
+            "INVALID_GOOGLE_CREDENTIAL",
+            "Google account identity is too long",
+        )
+    hosted_domain = os.getenv("GOOGLE_HOSTED_DOMAIN")
+    if hosted_domain and payload.get("hd") != hosted_domain:
+        raise GoogleAuthError(
+            403,
+            "GOOGLE_DOMAIN_NOT_ALLOWED",
+            "Google account domain is not allowed",
+        )
+    return payload
+
+
+def _googleUsername(db: Session, subject: str) -> str:
+    digest = hashlib.sha256(subject.encode("utf-8")).hexdigest()
+    for length in range(24, 57, 8):
+        username = f"google_{digest[:length]}"
+        if db.query(User).filter(User.username == username).first() is None:
+            return username
+    raise GoogleAuthError(409, "USERNAME_CONFLICT", "Unable to allocate username")
+
+
+def _issueUserAccessToken(user: User) -> dict:
+    access_token = createAccessToken(data={"id": user.id, "username": user.username})
+    return {
+        "status": 200,
+        "message": "Login success",
+        "access_token": access_token,
+    }
+
+
+def userGoogleLogin(db: Session, credential: str) -> dict:
+    payload = verifyGoogleCredential(credential)
+    subject = str(payload["sub"])
+    email = str(payload["email"]).strip().lower()
+    identity = (
+        db.query(UserAuthIdentity)
+        .filter(
+            UserAuthIdentity.provider == "google",
+            UserAuthIdentity.provider_subject == subject,
+        )
+        .first()
+    )
+    if identity is not None:
+        identity.provider_email = email
+        identity.last_login_at = datetime.now(timezone.utc)
+        db.commit()
+        return _issueUserAccessToken(identity.user)
+
+    existing_user = (
+        db.query(User).filter(func.lower(User.email) == email).first()
+    )
+    if existing_user is not None:
+        raise GoogleAuthError(
+            409,
+            "ACCOUNT_LINK_REQUIRED",
+            "An account with this email already exists; sign in with your password to link Google",
+        )
+
+    user = User(
+        username=_googleUsername(db, subject),
+        password=None,
+        nickname=(str(payload.get("name") or email).strip()[:64] or email[:64]),
+        email=email,
+        role=UserRole.GUEST,
+    )
+    identity = UserAuthIdentity(
+        user=user,
+        provider="google",
+        provider_subject=subject,
+        provider_email=email,
+    )
+    # SQLAlchemy 的 save-update 级联会在添加身份记录时一并将新用户加入 Session。
+    db.add(identity)
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        concurrent_identity = (
+            db.query(UserAuthIdentity)
+            .filter(
+                UserAuthIdentity.provider == "google",
+                UserAuthIdentity.provider_subject == subject,
+            )
+            .first()
+        )
+        if concurrent_identity is None:
+            raise GoogleAuthError(
+                409,
+                "ACCOUNT_CONFLICT",
+                "Google account could not be created",
+            ) from error
+        return _issueUserAccessToken(concurrent_identity.user)
+    db.refresh(user)
+    return _issueUserAccessToken(user)
+
+
+def userLinkGoogleIdentity(db: Session, user_id: int, credential: str) -> dict:
+    payload = verifyGoogleCredential(credential)
+    subject = str(payload["sub"])
+    email = str(payload["email"]).strip().lower()
+    user = db.get(User, user_id)
+    if user is None:
+        raise GoogleAuthError(404, "USER_NOT_FOUND", "User not found")
+    if not user.email or user.email.strip().lower() != email:
+        raise GoogleAuthError(
+            409,
+            "GOOGLE_EMAIL_MISMATCH",
+            "Google account email must match the current account email",
+        )
+
+    existing_identity = (
+        db.query(UserAuthIdentity)
+        .filter(
+            UserAuthIdentity.provider == "google",
+            UserAuthIdentity.provider_subject == subject,
+        )
+        .first()
+    )
+    if existing_identity is not None:
+        if existing_identity.user_id != user_id:
+            raise GoogleAuthError(
+                409,
+                "GOOGLE_IDENTITY_ALREADY_LINKED",
+                "Google account is already linked to another user",
+            )
+        return {"status": 200, "message": "Google account already linked"}
+
+    user_identity = (
+        db.query(UserAuthIdentity)
+        .filter(
+            UserAuthIdentity.user_id == user_id,
+            UserAuthIdentity.provider == "google",
+        )
+        .first()
+    )
+    if user_identity is not None:
+        raise GoogleAuthError(
+            409,
+            "GOOGLE_IDENTITY_ALREADY_LINKED",
+            "Current user already has a linked Google account",
+        )
+    db.add(
+        UserAuthIdentity(
+            user_id=user_id,
+            provider="google",
+            provider_subject=subject,
+            provider_email=email,
+        )
+    )
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise GoogleAuthError(
+            409,
+            "GOOGLE_IDENTITY_ALREADY_LINKED",
+            "Google account is already linked",
+        ) from error
+    return {"status": 200, "message": "Google account linked"}
 
 
 # 通过用户名或昵称或邮箱获取用户信息
@@ -161,6 +382,11 @@ def userModifyPassword(
         return {
             "status": -1,
             "message": "User not found",
+        }
+    if not user.password:
+        return {
+            "status": -4,
+            "message": "This account does not have a local password",
         }
     if not user.checkPassword(old_password):
         return {

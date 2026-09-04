@@ -1204,6 +1204,8 @@ GET /v1/api/getApiById?api_id=501&is_latest=true
   - role：string 类型，必填、不可为 null、描述：用户角色，枚举 frontend、backend、fullstack、qa、devops、product_manager、designer、architect、proj_lead、guest、示例值：backend。
   - level：int 类型，必填、不可为 null、描述：用户等级，L0 至 L4 分别映射为 0 至 4、示例值：0。
   - created_at：string 类型，必填、不可为 null、描述：用户创建时间（ISO 8601）、示例值：2026-09-02T10:00:00。
+  - has_password：boolean 类型，必填、不可为 null、描述：是否配置本地密码、示例值：true。
+  - auth_providers：array 类型，必填、不可为 null、描述：已绑定的第三方身份提供方、示例值：["google"]。
 
 请求示例：
 
@@ -1211,7 +1213,7 @@ GET /v1/user/getUserById?id=1
 
 响应值示例：
 
-{"status":200,"message":"Get user success","user":{"id":1,"username":"alice","nickname":"Alice","email":"alice@example.com","role":"backend","level":0,"created_at":"2026-09-02T10:00:00"}}
+{"status":200,"message":"Get user success","user":{"id":1,"username":"alice","nickname":"Alice","email":"alice@example.com","role":"backend","level":0,"created_at":"2026-09-02T10:00:00","has_password":true,"auth_providers":["google"]}}
 
 ## GetMyInfo
 
@@ -1237,6 +1239,8 @@ GET /v1/user/getUserById?id=1
   - role：string 类型，必填、不可为 null、描述：用户角色，枚举 frontend、backend、fullstack、qa、devops、product_manager、designer、architect、proj_lead、guest、示例值：backend。
   - level：int 类型，必填、不可为 null、描述：用户等级，L0 至 L4 分别映射为 0 至 4、示例值：4。
   - created_at：string 类型，必填、不可为 null、描述：用户创建时间（ISO 8601）、示例值：2026-09-02T10:00:00。
+  - has_password：boolean 类型，必填、不可为 null、描述：是否配置本地密码、示例值：true。
+  - auth_providers：array 类型，必填、不可为 null、描述：已绑定的第三方身份提供方、示例值：["google"]。
 
 请求示例：
 
@@ -1244,7 +1248,7 @@ GET /v1/user/getMyInfo
 
 响应值示例：
 
-{"status":200,"message":"Get user success","user":{"id":1,"username":"alice","nickname":"Alice","email":"alice@example.com","role":"backend","level":4,"created_at":"2026-09-02T10:00:00"}}
+{"status":200,"message":"Get user success","user":{"id":1,"username":"alice","nickname":"Alice","email":"alice@example.com","role":"backend","level":4,"created_at":"2026-09-02T10:00:00","has_password":true,"auth_providers":["google"]}}
 
 ## GetUserByUsernameOrNicknameOrEmail
 
@@ -1270,6 +1274,8 @@ GET /v1/user/getMyInfo
   - role：string 类型，必填、不可为 null、描述：用户角色，枚举 frontend、backend、fullstack、qa、devops、product_manager、designer、architect、proj_lead、guest、示例值：backend。
   - level：int 类型，必填、不可为 null、描述：用户等级、示例值：4。
   - created_at：string 类型，必填、不可为 null、描述：用户创建时间（ISO 8601）、示例值：2026-09-02T10:00:00。
+  - has_password：boolean 类型，必填、不可为 null、描述：是否配置本地密码、示例值：true。
+  - auth_providers：array 类型，必填、不可为 null、描述：已绑定的第三方身份提供方、示例值：["google"]。
 
 请求示例：
 
@@ -1277,7 +1283,7 @@ GET /v1/user/getUserByUsernameOrNicknameOrEmail?username_or_nickname_or_email=al
 
 响应值示例：
 
-{"status":200,"message":"Get users success","users":[{"id":1,"username":"alice","nickname":"Alice","email":"alice@example.com","role":"backend","level":4,"created_at":"2026-09-02T10:00:00"}]}
+{"status":200,"message":"Get users success","users":[{"id":1,"username":"alice","nickname":"Alice","email":"alice@example.com","role":"backend","level":4,"created_at":"2026-09-02T10:00:00","has_password":true,"auth_providers":["google"]}]}
 
 ## Login
 
@@ -1304,6 +1310,56 @@ GET /v1/user/getUserByUsernameOrNicknameOrEmail?username_or_nickname_or_email=al
 响应值示例：
 
 {"status":200,"message":"Login success","access_token":"eyJ..."}
+
+## GoogleLogin
+
+- API 名称：GoogleLogin
+- 请求方法与路径：POST /v1/user/login/google
+- 接口等级：P1
+- 接口描述：校验 Google Identity Services ID Token，关联或创建 CAM 用户并返回平台 JWT。
+- 请求参数：
+  - Body 参数：
+    - credential：string 类型，必填、不可为 null、描述：Google Identity Services 返回的 ID Token。
+  - Header 参数：
+    - 无鉴权参数。
+- 响应参数：
+  - 200：status、message、access_token，与密码登录成功响应一致。
+  - 400：INVALID_REQUEST，缺少 credential。
+  - 401：INVALID_GOOGLE_CREDENTIAL 或 UNVERIFIED_GOOGLE_ACCOUNT。
+  - 403：GOOGLE_DOMAIN_NOT_ALLOWED。
+  - 409：ACCOUNT_LINK_REQUIRED，邮箱已有本地账号，需要先密码登录后绑定。
+  - 503：GOOGLE_AUTH_NOT_CONFIGURED 或 GOOGLE_AUTH_UNAVAILABLE。
+
+请求示例：
+
+{"credential":"<google_id_token>"}
+
+响应值示例：
+
+{"status":200,"message":"Login success","access_token":"eyJ..."}
+
+## LinkGoogle
+
+- API 名称：LinkGoogle
+- 请求方法与路径：POST /v1/user/link/google
+- 接口等级：P1
+- 接口描述：为当前 Bearer Token 对应的 CAM 用户绑定同邮箱 Google 身份。
+- 请求参数：
+  - Body 参数：
+    - credential：string 类型，必填、不可为 null、描述：Google Identity Services 返回的 ID Token。
+  - Header 参数：
+    - Authorization：string 类型，必填、不可为 null、描述：Bearer 访问令牌。
+- 响应参数：
+  - 200：status、message。
+  - 409：GOOGLE_EMAIL_MISMATCH 或 GOOGLE_IDENTITY_ALREADY_LINKED。
+
+请求示例：
+
+{"credential":"<google_id_token>"}
+
+响应值示例：
+
+{"status":200,"message":"Google account linked"}
 
 ## Register
 
