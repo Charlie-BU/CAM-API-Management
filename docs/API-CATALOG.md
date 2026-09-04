@@ -664,11 +664,11 @@ GET /v1/api/getAllCategoriesByServiceId?service_id=101
 - API 名称：GetAllApisByServiceId
 - 请求方法与路径：GET /v1/api/getAllApisByServiceId
 - 接口等级：P2
-- 接口描述：按服务和分类查询最新正式 API 简表，不返回请求和响应参数。
+- 接口描述：按服务查询最新正式 API 简表，可通过分类筛选，不返回请求和响应参数。
 - 请求参数：
   - Query 参数：
     - service_id：int 类型，必填、不可为 null、描述：服务 ID、示例值：101。
-    - category_id：int 类型，必填、不可为 null、描述：API 分类 ID、示例值：10。
+    - category_id：int 类型，选填、不可为 null、描述：API 分类 ID；不传时返回服务下全部 API、示例值：10。
   - Header 参数：
     - Authorization：string 类型，必填、不可为 null、描述：Bearer 访问令牌、示例值：Bearer <access_token>。
 - 响应参数：
@@ -692,7 +692,7 @@ GET /v1/api/getAllCategoriesByServiceId?service_id=101
 
 请求示例：
 
-GET /v1/api/getAllApisByServiceId?service_id=101&category_id=10
+GET /v1/api/getAllApisByServiceId?service_id=101
 
 响应值示例：
 

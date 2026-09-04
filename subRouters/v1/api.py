@@ -44,18 +44,18 @@ def getAllCategoriesByServiceId(request: Request):
 def getAllApisByServiceId(request: Request):
     service_id = request.query_params.get("service_id", None)
     category_id = request.query_params.get("category_id", None)
-    if not service_id or not category_id:
+    if not service_id:
         return Response(
             status_code=400,
             headers={},
-            description="service_id and category_id are required",
+            description="service_id is required",
         )
     user_id = userGetUserIdByAccessToken(request)
     with session() as db:
         res = apiGetAllApisByServiceId(
             db=db,
             service_id=int(service_id),
-            category_id=int(category_id),
+            category_id=int(category_id) if category_id else None,
             user_id=user_id,
         )
     return res

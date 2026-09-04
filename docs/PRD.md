@@ -256,7 +256,7 @@ CLI 使用流程：
 ### 9.3 API（/v1/api）
 
 - `GET /getAllCategoriesByServiceId`
-- `GET /getAllApisByServiceId`（要求同时传 service_id 与 category_id）
+- `GET /getAllApisByServiceId`（service_id 必填，category_id 可选）
 - `GET /getApiById`（支持 `is_latest`）
 - `POST /addCategoryByServiceId`
 - `POST /deleteCategoryById`
