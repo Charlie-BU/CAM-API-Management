@@ -383,6 +383,18 @@ def userModifyPassword(
             "status": -1,
             "message": "User not found",
         }
+    if not old_password or old_password.strip() == "":
+        if user.password:
+            return {
+                "status": -2,
+                "message": "Old password cannot be empty",
+            }
+        user.password = User.hashPassword(new_password)  # type: ignore
+        db.commit()
+        return {
+            "status": 200,
+            "message": "Set password success",
+        }
     if not user.password:
         return {
             "status": -4,

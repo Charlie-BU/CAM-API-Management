@@ -157,7 +157,7 @@ async def register(request: Request):
 async def modifyPassword(request: Request):
     data = request.json()
     id = userGetUserIdByAccessToken(request=request)
-    old_password = data["old_password"]
+    old_password = data.get("old_password", "")
     new_password = data["new_password"]
     with session() as db:
         res = userModifyPassword(

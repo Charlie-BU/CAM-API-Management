@@ -103,7 +103,7 @@ class GoogleAuthTest(unittest.TestCase):
         identity = self.session.query(UserAuthIdentity).one()
         self.assertEqual(user.id, identity.user_id)
 
-    def test_google_only_user_cannot_modify_local_password(self):
+    def test_google_only_user_can_set_local_password_without_old_password(self):
         user = User(
             username="google-user",
             password=None,
@@ -117,11 +117,59 @@ class GoogleAuthTest(unittest.TestCase):
         response = userModifyPassword(
             self.session,
             user.id,
-            "old-password",
+            "",
+            "new-password",
+        )
+
+        self.assertEqual(200, response["status"])
+        self.assertEqual("Set password success", response["message"])
+        self.session.refresh(user)
+        self.assertTrue(user.checkPassword("new-password"))
+
+    def test_google_only_user_cannot_set_password_with_nonempty_old_password(self):
+        user = User(
+            username="google-user",
+            password=None,
+            nickname="Google User",
+            email="user@example.com",
+            role=UserRole.GUEST,
+        )
+        self.session.add(user)
+        self.session.commit()
+
+        response = userModifyPassword(
+            self.session,
+            user.id,
+            "unexpected-old-password",
             "new-password",
         )
 
         self.assertEqual(-4, response["status"])
+        self.session.refresh(user)
+        self.assertIsNone(user.password)
+
+    def test_local_password_user_cannot_bypass_old_password_check_with_empty_value(self):
+        user = User(
+            username="local-user",
+            password=User.hashPassword("old-password"),
+            nickname="Local User",
+            email="user@example.com",
+            role=UserRole.GUEST,
+        )
+        self.session.add(user)
+        self.session.commit()
+
+        response = userModifyPassword(
+            self.session,
+            user.id,
+            "",
+            "new-password",
+        )
+
+        self.assertEqual(-2, response["status"])
+        self.session.refresh(user)
+        self.assertTrue(user.checkPassword("old-password"))
+        self.assertFalse(user.checkPassword("new-password"))
 
     def test_google_credential_verification_checks_issuer_and_domain(self):
         payload = self.google_payload()
