@@ -291,6 +291,23 @@ def startIteration(request: Request):
     return res
 
 
+# 通过 OpenAPI 创建空的 service 迭代并导入 API 草稿
+@serviceRouterV1.post("/importOpenapi", auth_required=True)
+def importOpenApi(request: Request):
+    data = request.json()
+    service_id = data["service_id"]
+    openapi_object = data["openapi_object"]
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceImportOpenApi(
+            db=db,
+            user_id=user_id,
+            service_id=service_id,
+            openapi_object=openapi_object,
+        )
+    return res
+
+
 # 完成service迭代流程，service版本更新
 @serviceRouterV1.post("/commitIteration", auth_required=True)
 async def commitIteration(request: Request):

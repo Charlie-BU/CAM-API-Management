@@ -252,6 +252,7 @@ CLI 使用流程：
 - `POST /startIteration`
 - `POST /commitIteration`
 - `POST /updateDescription`
+- `POST /importOpenapi`（创建空迭代并将 OpenAPI 导入为 API 与参数草稿）
 
 ### 9.3 API（/v1/api）
 

@@ -4,6 +4,7 @@ from mailer import send_email
 from sqlalchemy.orm import Session
 from urllib.parse import unquote
 
+from database.enums import ApiLevel, HttpMethod
 from database.models import (
     User,
     Service,
@@ -16,6 +17,8 @@ from database.models import (
     RequestParamDraft,
     ResponseParamDraft,
 )
+from services.api import _process_params_recursively
+from services.openapi_import import OpenApiImportError, parseOpenApiDocument
 from services.utils import checkServiceIterationPermission, openapiTemplate
 
 
@@ -775,6 +778,127 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
         "status": 200,
         "message": "Start service iteration success",
         "service_iteration_id": new_iteration.id,  # 存在前端，在一个service迭代周期内作为唯一标识
+    }
+
+
+# 通过 OpenAPI 创建空的 service 迭代并导入 API 草稿
+def serviceImportOpenApi(
+    db: Session, user_id: int, service_id: int, openapi_object: dict
+) -> dict:
+    try:
+        if (
+            not isinstance(service_id, int)
+            or isinstance(service_id, bool)
+            or service_id <= 0
+        ):
+            raise OpenApiImportError("service_id must be a positive integer")
+        if not isinstance(openapi_object, dict):
+            raise OpenApiImportError("openapi_object must be a JSON object")
+        parsed = parseOpenApiDocument(openapi_object)
+    except OpenApiImportError as error:
+        return {
+            "status": -4,
+            "message": f"Invalid OpenAPI document: {error}",
+        }
+
+    curr_service = db.get(Service, service_id)
+    if not curr_service or curr_service.is_deleted:
+        return {
+            "status": -1,
+            "message": "Service not found",
+        }
+
+    user = db.get(User, user_id)
+    if (
+        curr_service.owner_id != user_id
+        and user not in curr_service.maintainers
+        and user.level.value != 0  # type: ignore
+    ):
+        return {
+            "status": -2,
+            "message": "You are neither the owner nor the maintainer of this service",
+        }
+
+    existing_iteration = (
+        db.query(ServiceIteration)
+        .filter(
+            ServiceIteration.service_id == service_id,
+            ~ServiceIteration.is_committed,
+            ServiceIteration.creator_id == user_id,
+        )
+        .first()
+    )
+    if existing_iteration:
+        return {
+            "status": -3,
+            "message": "You have an uncommitted service iteration in progress",
+            "service_iteration_id": existing_iteration.id,
+        }
+
+    def countParams(params: list[dict]) -> int:
+        return sum(
+            1 + countParams(param.get("children") or []) for param in params
+        )
+
+    new_iteration = ServiceIteration(
+        service_id=service_id,
+        creator_id=user_id,
+        version=None,
+        description=parsed["description"],
+        is_committed=False,
+    )
+
+    request_param_count = 0
+    response_param_count = 0
+    try:
+        db.add(new_iteration)
+        db.flush()
+        for api in parsed["apis"]:
+            api_draft = ApiDraft(
+                service_iteration_id=new_iteration.id,
+                owner_id=user_id,
+                category_id=None,
+                name=api["name"],
+                method=HttpMethod(api["method"]),
+                path=api["path"],
+                description=api["description"],
+                level=ApiLevel(api["level"]),
+                is_enabled=api["is_enabled"],
+            )
+            db.add(api_draft)
+            db.flush()
+
+            request_params = api["request_params"]
+            response_params = api["response_params"]
+            request_param_count += countParams(request_params)
+            response_param_count += countParams(response_params)
+            if request_params:
+                _process_params_recursively(
+                    db=db,
+                    params=request_params,
+                    api_draft_id=api_draft.id,
+                    param_model_class=RequestParamDraft,
+                )
+            if response_params:
+                _process_params_recursively(
+                    db=db,
+                    params=response_params,
+                    api_draft_id=api_draft.id,
+                    param_model_class=ResponseParamDraft,
+                )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return {
+        "status": 200,
+        "message": "Import OpenAPI success",
+        "service_iteration_id": new_iteration.id,
+        "api_count": len(parsed["apis"]),
+        "request_param_count": request_param_count,
+        "response_param_count": response_param_count,
+        "warnings": parsed["warnings"],
     }
 
 

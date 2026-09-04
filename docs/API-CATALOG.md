@@ -590,6 +590,79 @@ GET /v1/service/getIterationById?id=301
 
 {"status":200,"message":"Update service description success"}
 
+## ImportOpenapi
+
+- API 名称：ImportOpenapi
+- 请求方法与路径：POST /v1/service/importOpenapi
+- 接口等级：P1
+- 接口描述：为现有服务创建空的未提交迭代，并将 OpenAPI 3.0.x 或 3.1.x JSON 文档导入为 API 与参数草稿。当前用户已有未提交迭代时拒绝导入；导入过程为单事务，失败时不保留部分数据。
+- 请求参数：
+  - Body 参数：
+    - service_id：int 类型，必填、不可为 null、描述：目标服务 ID、示例值：101。
+    - openapi_object：object 类型，必填、不可为 null、描述：待导入的 OpenAPI JSON 文档、示例值：见请求示例。
+  - Header 参数：
+    - Authorization：string 类型，必填、不可为 null、描述：Bearer 访问令牌、示例值：Bearer <access_token>。
+- 响应参数：
+  - 200：
+    - status：int 类型，必填、不可为 null、描述：业务状态码、示例值：200。
+    - message：string 类型，必填、不可为 null、描述：响应信息、示例值：Import OpenAPI success。
+    - service_iteration_id：int 类型，必填、不可为 null、描述：新建的导入迭代 ID、示例值：301。
+    - api_count：int 类型，必填、不可为 null、描述：导入的 API 数量、示例值：1。
+    - request_param_count：int 类型，必填、不可为 null、描述：导入的请求参数总数（含嵌套参数）、示例值：1。
+    - response_param_count：int 类型，必填、不可为 null、描述：导入的响应参数总数（含嵌套参数）、示例值：1。
+    - warnings：array 类型，必填、不可为 null、描述：未阻断导入的兼容性提示、示例值：[]。
+
+请求示例：
+
+```json
+{
+  "service_id": 101,
+  "openapi_object": {
+    "openapi": "3.1.0",
+    "info": {"title": "order-service", "version": "2.0.0"},
+    "paths": {
+      "/orders/{id}": {
+        "get": {
+          "operationId": "getOrder",
+          "parameters": [
+            {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "integer"}},
+                    "required": ["id"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+响应值示例：
+
+```json
+{"status":200,"message":"Import OpenAPI success","service_iteration_id":301,"api_count":1,"request_param_count":1,"response_param_count":1,"warnings":[]}
+```
+
+兼容性说明：
+
+- 接受 JSON 格式的 OpenAPI 3.0.x 和 3.1.x 文档。
+- 支持 GET、POST、PUT、DELETE 和 PATCH；其他 HTTP 方法会跳过并产生 warning。
+- 支持本地 `$ref`、JSON 请求体、JSON 响应体以及 query、path、header、cookie 参数。
+- `allOf`、`oneOf`、`anyOf`、递归或外部 `$ref` 等 CAM 无法无损表达的结构会拒绝导入。
+- 非 JSON content、无响应体及非整数响应码会跳过，并通过 `warnings` 返回提示。
+- 导入后的 API 默认等级为 P2、分类为空；`deprecated: true` 会映射为停用状态。
+
 ## ExportOpenapiByUuidAndVersion
 
 - API 名称：ExportOpenapiByUuidAndVersion
